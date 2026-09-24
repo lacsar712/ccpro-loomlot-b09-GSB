@@ -9,7 +9,8 @@ class DyeLotCreate(BaseModel):
     recipe_name: str = Field(..., min_length=1, max_length=128, alias="recipeName")
     fabric_kg: float = Field(..., gt=0, alias="fabricKg")
     started_at: datetime = Field(..., alias="startedAt")
-    operator_name: str = Field(..., min_length=1, max_length=64, alias="operatorName")
+    # 可省略；若提供必须与登录显示名一致，服务端恒以登录显示名为准
+    operator_name: Optional[str] = Field(None, min_length=1, max_length=64, alias="operatorName")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -33,3 +34,6 @@ class DyeLotOut(BaseModel):
     fabric_kg: float = Field(serialization_alias="fabricKg")
     started_at: datetime = Field(serialization_alias="startedAt")
     operator_name: str = Field(serialization_alias="operatorName")
+    closed: bool = Field(serialization_alias="closed")
+    closed_at: Optional[datetime] = Field(None, serialization_alias="closedAt")
+    closed_by: Optional[str] = Field(None, serialization_alias="closedBy")

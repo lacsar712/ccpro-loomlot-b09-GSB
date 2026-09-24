@@ -24,6 +24,18 @@ PY
 echo "Creating tables..."
 python -c "from app.database import Base, engine; from app import models; Base.metadata.create_all(bind=engine)"
 
+echo "Applying column migrations..."
+python - <<'PY'
+from sqlalchemy import text
+from app.database import engine
+
+# create_all 不会为已存在的表补列；此处幂等补齐染程关闭字段
+with engine.begin() as conn:
+    conn.execute(text("ALTER TABLE dye_lots ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ"))
+    conn.execute(text("ALTER TABLE dye_lots ADD COLUMN IF NOT EXISTS closed_by VARCHAR(64)"))
+print("Column migrations applied.")
+PY
+
 echo "Seeding data..."
 python -c "from app.seed import seed; seed()"
 

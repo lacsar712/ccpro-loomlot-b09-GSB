@@ -19,7 +19,11 @@
     error = '';
     try {
       [lots, rows] = await Promise.all([api('/dye-lots'), api('/fastness-checks')]);
-      if (!form.dyeLotId && lots.length) form.dyeLotId = String(lots[0].id);
+      const selected = lots.find((l) => String(l.id) === form.dyeLotId);
+      if (!selected || (!editing && selected.closed)) {
+        const firstOpen = lots.find((l) => !l.closed);
+        form.dyeLotId = String((firstOpen || lots[0] || {}).id || '');
+      }
     } catch (e) {
       error = e.message;
     }
@@ -29,7 +33,7 @@
 
   function lotLabel(id) {
     const lot = lots.find((x) => x.id === id);
-    return lot ? `${lot.recipeName} (#${lot.id})` : id;
+    return lot ? `${lot.recipeName} (#${lot.id})${lot.closed ? ' · 已关闭' : ''}` : id;
   }
 
   async function save() {
@@ -85,7 +89,7 @@
 </script>
 
 <h1 class="page-title">色牢度抽检</h1>
-<p class="page-sub">耐洗 1–5 级；摩擦牢度须大于 0；记录检测温度。</p>
+<p class="page-sub">耐洗 1–5 级；摩擦牢度须大于 0；已关闭染程禁止追加抽检（服务端 409 拦截）。</p>
 
 <div class="panel" style="margin-bottom:1rem;">
   <div class="form-grid">
@@ -93,7 +97,9 @@
       >染程
       <select bind:value={form.dyeLotId}>
         {#each lots as lot}
-          <option value={String(lot.id)}>{lot.recipeName} · {lot.fabricKg}kg</option>
+          <option value={String(lot.id)} disabled={lot.closed}
+            >{lot.recipeName} · {lot.fabricKg}kg{lot.closed ? '（已关闭）' : ''}</option
+          >
         {/each}
       </select>
     </label>

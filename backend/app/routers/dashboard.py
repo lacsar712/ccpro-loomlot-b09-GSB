@@ -38,4 +38,7 @@ def get_stats(
             .scalar()
             or 0
         ),
+        open_lot_count=(
+            db.query(func.count(DyeLot.id)).filter(DyeLot.closed_at.is_(None)).scalar() or 0
+        ),
     )

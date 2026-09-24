@@ -77,6 +77,7 @@ def seed() -> None:
             db.flush()
 
             now = datetime.now(timezone.utc)
+            # lot1：未关闭染程（种子保留一笔，供开缸/抽检演示）
             lot1 = DyeLot(
                 vat_id=v1.id,
                 recipe_name="靛蓝冷染三浸",
@@ -84,12 +85,15 @@ def seed() -> None:
                 started_at=now - timedelta(hours=6),
                 operator_name="染程操作员",
             )
+            # lot2：已关闭染程（主管关闭，演示关闭后禁止追加抽检）
             lot2 = DyeLot(
                 vat_id=v3.id,
                 recipe_name="青蓝套染",
                 fabric_kg=18.0,
                 started_at=now - timedelta(days=2),
                 operator_name="染坊主管",
+                closed_at=now - timedelta(days=1),
+                closed_by="染坊主管",
             )
             db.add_all([lot1, lot2])
             db.flush()
