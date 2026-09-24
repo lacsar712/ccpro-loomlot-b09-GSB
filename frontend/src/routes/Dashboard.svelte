@@ -37,6 +37,10 @@
       <div class="l">染色中</div>
     </div>
     <div class="stat">
+      <div class="n">{stats.openLotCount}</div>
+      <div class="l">未关闭染程</div>
+    </div>
+    <div class="stat">
       <div class="n">{stats.lotsLast7d}</div>
       <div class="l">近 7 日染程</div>
     </div>
@@ -49,7 +53,7 @@
 
 <div class="panel">
   <p style="margin:0 0 0.75rem;color:var(--indigo-mist);font-size:0.9rem;">
-    业务约束：仅当染缸为 <strong>ready</strong> 或 <strong>dyeing</strong> 时可新建染程；新建后染缸自动变为 dyeing。排液可用染缸「完成排液」动作。
+    业务约束：仅当染缸为 <strong>ready</strong> 或 <strong>dyeing</strong> 时可新建染程；新建后染缸自动变为 dyeing。操作员可开立染程但不可关闭，关闭仅主管可执行；染程关闭后任何人不可再追加色牢度抽检，被拒的抽检请求不会产生记录、不计入统计。排液可用染缸「完成排液」动作。
   </p>
   <div class="toolbar">
     <a class="btn" href="/houses" use:link>进入染坊</a>

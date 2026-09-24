@@ -19,13 +19,22 @@
     error = '';
     try {
       [lots, rows] = await Promise.all([api('/dye-lots'), api('/fastness-checks')]);
-      if (!form.dyeLotId && lots.length) form.dyeLotId = String(lots[0].id);
+      if (!form.dyeLotId) {
+        // 默认选第一个未关闭染程；全部关闭时退回第一条
+        const firstOpen = lots.find((l) => !l.closed);
+        form.dyeLotId = String((firstOpen || lots[0] || {}).id ?? '');
+      }
     } catch (e) {
       error = e.message;
     }
   }
 
   onMount(load);
+
+  $: selectedLot = lots.find((x) => x.id === Number(form.dyeLotId)) || null;
+  $: selectedClosed = !!selectedLot?.closed;
+  // 已关闭染程禁止追加抽检；后端同样强制 409，这里只是先拦住误操作
+  $: createBlocked = !editing && selectedClosed;
 
   function lotLabel(id) {
     const lot = lots.find((x) => x.id === id);
@@ -85,15 +94,17 @@
 </script>
 
 <h1 class="page-title">色牢度抽检</h1>
-<p class="page-sub">耐洗 1–5 级；摩擦牢度须大于 0；记录检测温度。</p>
+<p class="page-sub">耐洗 1–5 级；摩擦牢度须大于 0；记录检测温度。染程关闭后任何人不可再追加抽检。</p>
 
 <div class="panel" style="margin-bottom:1rem;">
   <div class="form-grid">
     <label
       >染程
-      <select bind:value={form.dyeLotId}>
+      <select bind:value={form.dyeLotId} disabled={editing !== null}>
         {#each lots as lot}
-          <option value={String(lot.id)}>{lot.recipeName} · {lot.fabricKg}kg</option>
+          <option value={String(lot.id)} disabled={lot.closed && !editing}
+            >{lot.recipeName} · {lot.fabricKg}kg{lot.closed ? '（已关闭）' : ''}</option
+          >
         {/each}
       </select>
     </label>
@@ -103,8 +114,13 @@
     <label>温度 ℃ <input type="number" step="0.1" bind:value={form.tempC} /></label>
     <label>备注 <input bind:value={form.notes} /></label>
   </div>
+  {#if createBlocked}
+    <p class="warn">该染程已关闭，禁止再追加色牢度抽检（操作员与主管均不可）。</p>
+  {/if}
   <div class="toolbar">
-    <button class="btn" type="button" on:click={save}>{editing ? '保存修改' : '登记抽检'}</button>
+    <button class="btn" type="button" disabled={createBlocked} on:click={save}
+      >{editing ? '保存修改' : '登记抽检'}</button
+    >
     {#if editing}
       <button class="btn ghost" type="button" on:click={() => (editing = null)}>取消</button>
     {/if}
@@ -130,7 +146,12 @@
       {#each rows as row}
         <tr>
           <td>{row.id}</td>
-          <td>{lotLabel(row.dyeLotId)}</td>
+          <td>
+            {lotLabel(row.dyeLotId)}
+            {#if lots.find((l) => l.id === row.dyeLotId)?.closed}
+              <span class="tag-closed">染程已关闭</span>
+            {/if}
+          </td>
           <td>{new Date(row.checkedAt).toLocaleString()}</td>
           <td>{row.washFastness}</td>
           <td>{row.rubFastness}</td>
@@ -145,3 +166,24 @@
     </tbody>
   </table>
 </div>
+
+<style>
+  .warn {
+    margin: 0.5rem 0 0;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+    color: #f3d27a;
+    border: 1px solid rgba(243, 210, 122, 0.45);
+    background: rgba(243, 210, 122, 0.08);
+    border-radius: 2px;
+  }
+
+  .tag-closed {
+    margin-left: 0.4rem;
+    padding: 0.05rem 0.4rem;
+    border-radius: 2px;
+    font-size: 0.7rem;
+    color: var(--indigo-mist);
+    border: 1px solid var(--line);
+  }
+</style>

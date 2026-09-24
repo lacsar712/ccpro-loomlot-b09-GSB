@@ -1,7 +1,9 @@
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy import inspect, text
+
 from app.auth import hash_password
-from app.database import SessionLocal
+from app.database import SessionLocal, engine
 from app.models.dye_house import DyeHouse
 from app.models.dye_lot import DyeLot
 from app.models.fastness_check import FastnessCheck
@@ -9,7 +11,30 @@ from app.models.user import User
 from app.models.vat import Vat
 
 
+def ensure_schema() -> None:
+    """create_all 不会给既有表补列；对老数据卷幂等补齐染程关闭字段。"""
+    inspector = inspect(engine)
+    if "dye_lots" not in inspector.get_table_names():
+        return
+    columns = {c["name"] for c in inspector.get_columns("dye_lots")}
+    statements = []
+    if "closed" not in columns:
+        statements.append(
+            "ALTER TABLE dye_lots ADD COLUMN closed BOOLEAN NOT NULL DEFAULT FALSE"
+        )
+    if "closed_at" not in columns:
+        statements.append(
+            "ALTER TABLE dye_lots ADD COLUMN closed_at TIMESTAMP WITH TIME ZONE"
+        )
+    if statements:
+        with engine.begin() as conn:
+            for stmt in statements:
+                conn.execute(text(stmt))
+        print("Backfilled dye_lots columns: closed / closed_at")
+
+
 def seed() -> None:
+    ensure_schema()
     db = SessionLocal()
     try:
         if db.query(User).count() == 0:
@@ -90,6 +115,8 @@ def seed() -> None:
                 fabric_kg=18.0,
                 started_at=now - timedelta(days=2),
                 operator_name="染坊主管",
+                closed=True,
+                closed_at=now - timedelta(days=1, hours=20),
             )
             db.add_all([lot1, lot2])
             db.flush()

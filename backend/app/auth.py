@@ -55,3 +55,16 @@ def get_current_user(
     if not user:
         raise credentials_exception
     return user
+
+
+SUPERVISOR_ROLE = "admin"
+
+
+def require_supervisor(current_user: User = Depends(get_current_user)) -> User:
+    """仅染坊主管（admin）可执行关闭染程等收口动作。"""
+    if current_user.role != SUPERVISOR_ROLE:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="仅染坊主管可执行该操作",
+        )
+    return current_user

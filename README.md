@@ -49,13 +49,31 @@ docker compose down
 
 1. **DyeHouse** — `name`, `waterNote`, `notes`
 2. **Vat** — `dyeHouseId`, `vatCode`, `fiberType`, `capacityL`, `status` ∈ `ready|dyeing|drain`
-3. **DyeLot** — `vatId`, `recipeName`, `fabricKg`, `startedAt`, `operatorName`
+3. **DyeLot** — `vatId`, `recipeName`, `fabricKg`, `startedAt`, `operatorName`, `closed`, `closedAt`
 4. **FastnessCheck** — `dyeLotId`, `checkedAt`, `washFastness`(1–5), `rubFastness`(>0), `tempC`, `notes`
+
+### 角色矩阵
+
+| 动作 | 染程操作员 `dyer` | 染坊主管 `admin` |
+| --- | --- | --- |
+| 新建染程 | ✅（操作人必须且恒为本人登录显示名，异名请求体 400） | ✅（同规则） |
+| 修改染程（配方/缸/时间等） | ✅ | ✅ |
+| 修改操作人 | ❌ 接口不接收 `operatorName`，任何角色均不可改 | ❌ 同左 |
+| 关闭染程 `POST /api/dye-lots/{id}/close` | ❌ 403 | ✅ |
+| 重复关闭染程 | — | ❌ 409 |
+| 未关闭染程追加色牢度抽检 | ✅ | ✅ |
+| 已关闭染程追加色牢度抽检 | ❌ 409「该染程已关闭，禁止再追加色牢度抽检」 | ❌ 同左（任何人都被拦） |
+| 染程列表按关闭状态筛选 | ✅ `GET /api/dye-lots?closed=false|true` | ✅ |
+
+> 前端仅按角色隐藏「关闭」按钮、并把已关闭染程移出抽检下拉；真正的 403/409 强制均在后端，绕过前端直调 API 同样被拒。被拒绝的抽检不产生记录，因此不计入看板统计。
 
 ### 规则
 
 - 仅当染缸状态为 `ready` 或 `dyeing` 时可新建染程，否则 409
 - 新建染程后，染缸状态自动设为 `dyeing`
+- 染程创建时 `operatorName` 必须等于登录用户的 `displayName`，否则 400；落库值恒取登录显示名
+- 染程只能由主管关闭；关闭后不可再追加色牢度抽检（409 中文错误），关闭不可逆
+- 看板 `GET /api/dashboard/stats` 增加 `openLotCount`（未关闭染程数，与 `GET /api/dye-lots?closed=false` 行数一致）
 - 可选接口：`POST /api/vats/{id}/drain` 将染缸置为 `drain`
 
 ## 主要 API
@@ -64,8 +82,8 @@ docker compose down
 - `GET /api/auth/me`
 - `GET/POST/PUT/DELETE /api/dye-houses`
 - `GET/POST/PUT/DELETE /api/vats` · `POST /api/vats/{id}/drain`
-- `GET/POST/PUT/DELETE /api/dye-lots`
-- `GET/POST/PUT/DELETE /api/fastness-checks`
+- `GET/POST/PUT/DELETE /api/dye-lots`（`GET` 支持 `?closed=true|false`）· `POST /api/dye-lots/{id}/close`（仅主管）
+- `GET/POST/PUT/DELETE /api/fastness-checks`（向已关闭染程追加返回 409）
 - `GET /api/dashboard/stats`
 
 除登录外需 `Authorization: Bearer <token>`。字段对外为 camelCase。

@@ -34,6 +34,9 @@ def create_check(
     lot = db.query(DyeLot).filter(DyeLot.id == payload.dye_lot_id).first()
     if not lot:
         raise HTTPException(status_code=400, detail="染程不存在")
+    if lot.closed:
+        # 关闭后禁止任何人（含主管）再追加抽检；被拒请求不产生记录，故不计入看板
+        raise HTTPException(status_code=409, detail="该染程已关闭，禁止再追加色牢度抽检")
     item = FastnessCheck(
         dye_lot_id=payload.dye_lot_id,
         checked_at=payload.checked_at,
@@ -71,10 +74,12 @@ def update_check(
     if not item:
         raise HTTPException(status_code=404, detail="色牢度抽检不存在")
     data = payload.model_dump(exclude_unset=True)
-    if "dye_lot_id" in data:
+    if "dye_lot_id" in data and data["dye_lot_id"] != item.dye_lot_id:
         lot = db.query(DyeLot).filter(DyeLot.id == data["dye_lot_id"]).first()
         if not lot:
             raise HTTPException(status_code=400, detail="染程不存在")
+        if lot.closed:
+            raise HTTPException(status_code=409, detail="该染程已关闭，禁止再追加色牢度抽检")
     for k, v in data.items():
         setattr(item, k, v)
     db.commit()
